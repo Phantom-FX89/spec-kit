@@ -12,6 +12,7 @@ Usage::
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from shutil import rmtree
@@ -56,7 +57,19 @@ class HermesIntegration(SkillsIntegration):
 
     @staticmethod
     def _hermes_home_skills_dir() -> Path:
-        """Return ``~/.hermes/skills/`` — the global skills directory."""
+        """Return the active Hermes home's ``skills/`` directory.
+
+        Hermes reads ``HERMES_HOME`` (e.g. a non-default install or a
+        ``profiles/<name>`` directory) and falls back to ``~/.hermes``.
+        """
+        override = os.environ.get("HERMES_HOME", "").strip()
+        if override:
+            if override == "~" or override.startswith("~/"):
+                home = Path.home() / override[1:].lstrip("/")
+            else:
+                home = Path(override)
+            if home.is_absolute():
+                return home / "skills"
         return Path.home() / ".hermes" / "skills"
 
     # -- Options -----------------------------------------------------------

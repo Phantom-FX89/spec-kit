@@ -1111,6 +1111,12 @@ class CommandRegistrar:
         path unconditionally — no fallback, no warning.
         """
         dir_str = agent_config["dir"]
+        if agent_name == "hermes":
+            # Hermes honours HERMES_HOME; keep extension skills alongside
+            # the core skills the integration installs.
+            from .integrations.hermes import HermesIntegration
+
+            return HermesIntegration._hermes_home_skills_dir()
         if dir_str.startswith("~"):
             # Use Path.home() + remainder instead of expanduser() so tests
             # that monkeypatch Path.home() can properly isolate the home dir.

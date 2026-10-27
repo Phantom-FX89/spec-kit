@@ -22,6 +22,10 @@ See [integration management](cli.md) for activation, upgrades, and removal.
 
 Unlike project-local skills integrations, Hermes installs skills globally as
 `~/.hermes/skills/speckit-<command>/SKILL.md`.
+When `HERMES_HOME` is set to an absolute path (or one starting with `~/`), skills
+go to `$HERMES_HOME/skills/` instead, so a non-default install or a single
+profile (`HERMES_HOME=~/.hermes/profiles/<name>`) can be targeted. Setup,
+extensions and uninstall all use the same directory.
 Invoke them in Hermes's chat, for example `/speckit-specify` or
 `/speckit-bug-assess` for the installed bug extension.
 

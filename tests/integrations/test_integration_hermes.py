@@ -12,10 +12,19 @@ non-destructive to a developer's real Hermes installation.
 
 from pathlib import Path
 
+import pytest
+
+from specify_cli.agents import CommandRegistrar
 from specify_cli.integrations import get_integration
 from specify_cli.integrations.manifest import IntegrationManifest
 
 from .test_integration_base_skills import SkillsIntegrationTests
+
+
+@pytest.fixture(autouse=True)
+def _no_hermes_home(monkeypatch):
+    """Keep a developer's HERMES_HOME from leaking into these tests."""
+    monkeypatch.delenv("HERMES_HOME", raising=False)
 
 
 def _fake_home(tmp_path: Path) -> Path:
@@ -64,6 +73,52 @@ class TestHermesIntegration(SkillsIntegrationTests):
         # Should be empty (no SKILL.md files)
         children = list(marker.iterdir())
         assert children == [], f"Marker directory should be empty, got: {children}"
+
+    # -- HERMES_HOME selects the install (or profile) ----------------------
+
+    def test_setup_honours_hermes_home(self, tmp_path, monkeypatch):
+        """Skills go to $HERMES_HOME/skills/ when HERMES_HOME is set."""
+        home = _fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: home)
+        hermes_home = tmp_path / "hermes-m2" / "profiles" / "casey"
+        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+
+        i = get_integration(self.KEY)
+        m = IntegrationManifest(self.KEY, tmp_path)
+        created = i.setup(tmp_path, m)
+        skill_files = [f for f in created if "scripts" not in f.parts]
+
+        assert skill_files
+        for f in skill_files:
+            assert str(f).startswith(str(hermes_home / "skills"))
+        assert not (home / ".hermes").exists()
+
+    def test_hermes_home_tilde_is_expanded(self, tmp_path, monkeypatch):
+        home = _fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setenv("HERMES_HOME", "~/.hermes-m2")
+
+        i = get_integration(self.KEY)
+        assert i._hermes_home_skills_dir() == home / ".hermes-m2" / "skills"
+
+    def test_relative_hermes_home_is_ignored(self, tmp_path, monkeypatch):
+        home = _fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setenv("HERMES_HOME", "relative/dir")
+
+        i = get_integration(self.KEY)
+        assert i._hermes_home_skills_dir() == home / ".hermes" / "skills"
+
+    def test_registrar_dir_honours_hermes_home(self, tmp_path, monkeypatch):
+        """Extension skills land next to the core skills."""
+        home = _fake_home(tmp_path)
+        monkeypatch.setattr(Path, "home", lambda: home)
+        hermes_home = tmp_path / "hermes-m2"
+        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+
+        config = CommandRegistrar.AGENT_CONFIGS[self.KEY]
+        resolved = CommandRegistrar._resolve_agent_dir(self.KEY, config, tmp_path)
+        assert resolved == hermes_home / "skills"
 
     # -- Override shared tests that assume project-local skills ------------
 
